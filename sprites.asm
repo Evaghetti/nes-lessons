@@ -58,7 +58,7 @@
     @FimLoopLendoPaletas:
 
     ; Reseta Sprites
-    LDA #$00
+    LDA #$FC
     LDX #$00
     @LoopResetSprites:
         STA $0200, X
@@ -70,22 +70,20 @@
         BIT PPUSTATUS
         BPL vblankwait
 
-    ; Set a posição do player pra 16
-    LDA #$10
+    ; Carrega as configs do sprite player
+    LDX #$00
+    @LoopLendoPlayer:
+        LDA SpritesPlayer, x
+        STA $0200, x
+        INX
+        CPX #$10
+        BCC @LoopLendoPlayer
+    
+    ; Incializa as variaveis X e Y de acordo com o sprite.
+    LDA SpritesPlayer + 3
     STA playerX
+    LDA SpritesPlayer
     STA playerY
-
-    ; Coloca a mesma posição no sprite em si
-    STA $0200
-    STA $0203
-
-    ; Sem flip, prioridade normal, paleta de cores 0.
-    LDA #%00000000
-    STA $0202
-
-    ; Index 7 pra esse sprite.
-    LDA #$07
-    STA $0201
     
     ; Reativa NMI, Sprites usam a primeira pattern table.
     LDA #%10010000 
@@ -112,27 +110,49 @@
     INC playerX
     INC playerY
 
-    LDA playerX
-    STA $0203
-    LDA playerY
-    STA $0200
+    LDX #$00 ; Offset dentre os sprites, incrementa de 4 em 4 (primeiro pos y tá em $0200, segundo $0204...)
+    @LoopAtualizandoSpritesPlayer:
+        LDA SpritesPlayer + 3, x ; Carrega a posicao X inicial desse sprite
+        CLC
+        ADC playerX ; Acrescenta nela o X atual do sprite.
+        STA $0203, x ; Guarda no endereço do sprite em memória pra atualizar ele.
+
+        LDA SpritesPlayer, x ; Carrega a posicao Y inicial desse sprite
+        CLC
+        ADC playerY ; Acrescenta nela o Y atual do sprite.
+        STA $0200, x ; Guarda no endereço do sprite em memória pra atualizar ele.
+
+        ; Acrescenta 4 no offset pra ir pro proximo sprite.
+        TXA
+        CLC
+        ADC #$04
+        TAX
+
+        CPX #$10 ; Verifica se X é menor ou igual a 16, se for continua atualizando
+        BCC @LoopAtualizandoSpritesPlayer
     
     JMP main
 .endproc
 
 Paletas:
 ; Paleta de cores Background
-.byte $29, $19, $09, $0f
-.byte $0f, $0f, $0f, $0f
-.byte $0f, $0f, $0f, $0f
-.byte $0f, $0f, $0f, $0f
+.byte $22, $29, $1A, $0F
+.byte $22, $36, $17, $0F
+.byte $22, $30, $21, $0F  
+.byte $22, $27, $17, $0F
 ; Paleta de cores Sprite.
-.byte $29, $15, $05, $0f
-.byte $0f, $0f, $0f, $0f
-.byte $0f, $0f, $0f, $0f
-.byte $0f, $0f, $0f, $0f
+.byte $22, $1c, $15, $14
+.byte $22, $02, $38, $3c
+.byte $22, $16, $27, $18
+.byte $22, $0f, $0f, $0f
 ; Fim da paleta
 .byte $00
+
+SpritesPlayer:
+.byte $36, $32, %00000010, $3a
+.byte $36, $33, %00000010, $42
+.byte $3e, $4f, %00000010, $3a
+.byte $3e, $4f, %01000010, $42
 
 .segment "VECTORS"
 .addr nmi_handler, reset_handler, irq_handler
